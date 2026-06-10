@@ -395,35 +395,49 @@
     return actx;
   }
 
-  // a single note with a soft envelope
-  function tone(freq, start, dur, type, peak) {
+  // a single note with a soft, romantic envelope (slow attack, long release)
+  function tone(freq, start, dur, type, peak, attack) {
     const a = audio(); if (!a) return;
     const osc = a.createOscillator();
     const g = a.createGain();
     osc.type = type || 'sine';
     osc.frequency.value = freq;
+    // a soft detuned partner gives a warmer, less synthetic sound
     osc.connect(g); g.connect(a.destination);
+    const atk = attack != null ? attack : 0.08;
     g.gain.setValueAtTime(0.0001, start);
-    g.gain.exponentialRampToValueAtTime(peak || 0.2, start + 0.02);
+    g.gain.exponentialRampToValueAtTime(peak || 0.2, start + atk);
     g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
     osc.start(start);
-    osc.stop(start + dur + 0.05);
+    osc.stop(start + dur + 0.08);
   }
 
-  // gentle looping background melody
+  // gentle looping background music — soft arpeggios + warm pad (music-box feel)
   function startMusic() {
     const a = audio(); if (!a || musicOn) return;
     musicOn = true;
-    const melody = [523.25, 659.25, 783.99, 659.25, 587.33, 783.99, 698.46, 587.33]; // C E G E D G F D
-    const beat = 0.42;
-    let i = 0;
+    // I–V–vi–IV progression (C  G  Am  F) — the classic romantic one
+    const chords = [
+      [261.63, 329.63, 392.00],   // C  (C E G)
+      [246.94, 311.13, 392.00],   // G/B (B D G)  -> warm voicing
+      [220.00, 329.63, 440.00],   // Am (A C E -> voiced A E A)
+      [174.61, 261.63, 349.23]    // F  (F C F)
+    ];
+    const barDur = 2.6;       // seconds per chord (slow & dreamy)
+    let bar = 0;
     function loop() {
       if (!musicOn) return;
-      const t = a.currentTime + 0.05;
-      tone(melody[i % melody.length], t, beat * 0.9, 'triangle', 0.05);       // melody (soft)
-      tone(melody[i % melody.length] / 2, t, beat * 0.9, 'sine', 0.035);      // bass octave below
-      i++;
-      setTimeout(loop, beat * 1000);
+      const t = a.currentTime + 0.06;
+      const ch = chords[bar % chords.length];
+      // soft sustained pad (root, low) for warmth
+      tone(ch[0] / 2, t, barDur, 'sine', 0.045, 0.4);
+      // gentle harp-like arpeggio rising through the chord, then top note shimmer
+      const arp = [ch[0], ch[1], ch[2], ch[1] * 2, ch[2]];
+      arp.forEach(function (f, k) {
+        tone(f, t + k * (barDur / 6), barDur / 3, 'sine', 0.06, 0.06);
+      });
+      bar++;
+      setTimeout(loop, barDur * 1000);
     }
     loop();
   }
