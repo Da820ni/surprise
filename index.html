@@ -381,6 +381,86 @@
     }
   }
 
+  /* ---------- Audio (Web Audio API, no files) ---------- */
+  let actx = null;
+  let musicOn = false;
+  let lastErr = 0;
+
+  function audio() {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+
+  // a single note with a soft envelope
+  function tone(freq, start, dur, type, peak) {
+    const a = audio(); if (!a) return;
+    const osc = a.createOscillator();
+    const g = a.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    osc.connect(g); g.connect(a.destination);
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(peak || 0.2, start + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.start(start);
+    osc.stop(start + dur + 0.05);
+  }
+
+  // gentle looping background melody
+  function startMusic() {
+    const a = audio(); if (!a || musicOn) return;
+    musicOn = true;
+    const melody = [523.25, 659.25, 783.99, 659.25, 587.33, 783.99, 698.46, 587.33]; // C E G E D G F D
+    const beat = 0.42;
+    let i = 0;
+    function loop() {
+      if (!musicOn) return;
+      const t = a.currentTime + 0.05;
+      tone(melody[i % melody.length], t, beat * 0.9, 'triangle', 0.05);       // melody (soft)
+      tone(melody[i % melody.length] / 2, t, beat * 0.9, 'sine', 0.035);      // bass octave below
+      i++;
+      setTimeout(loop, beat * 1000);
+    }
+    loop();
+  }
+
+  // error buzz when the NO button is approached (throttled)
+  function playError() {
+    const a = audio(); if (!a) return;
+    const now = Date.now();
+    if (now - lastErr < 350) return;
+    lastErr = now;
+    const t = a.currentTime;
+    tone(196.00, t, 0.14, 'sawtooth', 0.12);        // low G
+    tone(185.00, t + 0.13, 0.16, 'sawtooth', 0.12); // a touch lower -> "eh-ehh" error
+  }
+
+  // victory fanfare when YES is pressed
+  function playVictory() {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C E G C (rising)
+    notes.forEach(function (f, k) {
+      tone(f, t + k * 0.12, 0.22, 'square', 0.12);
+    });
+    tone(1046.50, t + notes.length * 0.12, 0.5, 'triangle', 0.14); // final shiny note
+  }
+
+  // browsers block audio until a user gesture -> start music on first interaction
+  function armMusic() {
+    startMusic();
+    window.removeEventListener('pointerdown', armMusic);
+    window.removeEventListener('touchstart', armMusic);
+    window.removeEventListener('keydown', armMusic);
+  }
+  window.addEventListener('pointerdown', armMusic);
+  window.addEventListener('touchstart', armMusic);
+  window.addEventListener('keydown', armMusic);
+
   /* ---------- Screen 1: runaway NO button ---------- */
   const noBtn = document.getElementById('noBtn');
   let noScale = 1;
@@ -438,6 +518,7 @@
     noBtn.style.top = y + 'px';
     noScale = Math.max(0.45, noScale - 0.06);
     noBtn.style.transform = 'scale(' + noScale + ')';
+    playError();
   }
 
   noBtn.addEventListener('mouseenter', function (e) { fleeNo(e.clientX, e.clientY); });
@@ -451,6 +532,8 @@
   noBtn.addEventListener('click', function (e) { e.preventDefault(); fleeNo(e.clientX, e.clientY); });
 
   document.getElementById('yesBtn').addEventListener('click', function () {
+    startMusic();
+    playVictory();
     confettiBurst();
     show('s2');
   });
