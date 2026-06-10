@@ -423,18 +423,18 @@
       [220.00, 329.63, 440.00],   // Am (A C E -> voiced A E A)
       [174.61, 261.63, 349.23]    // F  (F C F)
     ];
-    const barDur = 2.6;       // seconds per chord (slow & dreamy)
+    const barDur = 4.2;       // seconds per chord (very slow & dreamy)
     let bar = 0;
     function loop() {
       if (!musicOn) return;
       const t = a.currentTime + 0.06;
       const ch = chords[bar % chords.length];
-      // soft sustained pad (root, low) for warmth
-      tone(ch[0] / 2, t, barDur, 'sine', 0.045, 0.4);
-      // gentle harp-like arpeggio rising through the chord, then top note shimmer
-      const arp = [ch[0], ch[1], ch[2], ch[1] * 2, ch[2]];
+      // soft sustained pad (root, low) for warmth — long swell in and out
+      tone(ch[0] / 2, t, barDur, 'sine', 0.04, 0.9);
+      // gentle harp-like arpeggio, notes spaced out and lingering
+      const arp = [ch[0], ch[1], ch[2], ch[1] * 2];
       arp.forEach(function (f, k) {
-        tone(f, t + k * (barDur / 6), barDur / 3, 'sine', 0.06, 0.06);
+        tone(f, t + k * (barDur / 5), barDur / 2.2, 'sine', 0.05, 0.12);
       });
       bar++;
       setTimeout(loop, barDur * 1000);
